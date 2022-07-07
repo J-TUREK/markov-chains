@@ -25,7 +25,7 @@ class Player():
         self.pot += 1.5 * bet if blackjack else 1 * bet
         self.pot_size.append(self.pot)
         if blackjack: print("Player wins with blackjack")
-        
+
         print("\n")
         print("***----------***")
         print(f"{self.name} won, current pot: {self.pot}")
@@ -33,6 +33,7 @@ class Player():
 
     def handle_loss(self, bet_size=None):
         bet = bet_size if bet_size else self.bet_size
+        print("losing bet: ", bet)
         self.pot -= bet
         self.pot_size.append(self.pot)
 
@@ -63,7 +64,8 @@ class Player():
 
 class BlackJack():
 
-    def __init__(self, player:Player, starting_pot=1000, bet_size=100, shoes=1) -> None:
+    def __init__(self, player:Player, starting_pot=1000, bet_size=100, shoes=1, play_manually=True) -> None:
+        self.play_manually = play_manually
         self.shoes = shoes
         self.player = player
         self.dealer = Player(name="Dealer", starting_pot=10*starting_pot, bet_size=bet_size)
@@ -72,6 +74,7 @@ class BlackJack():
         self.deck = self.create_deck(shoes)
         self.running_count = 0
         self.true_count = 0
+        self.running_counts = [0]
 
     def create_deck(self, shoes=1):
         ''' Create a numeric representation of a deck of cards with potentially many shoes '''
@@ -84,6 +87,7 @@ class BlackJack():
         elif card in [7,8,9]: self.running_count += 0
         else: self.running_count += -1
         self.true_count = self.running_count / self.shoes
+        self.running_counts.append(self.running_count)
 
     def deal_card(self):
         card = random.choice(self.deck)
@@ -94,12 +98,47 @@ class BlackJack():
     def remove_card_from_deck(self, card):
         self.deck.remove(card)
 
+    def optimal_decision(self, turn:int, player:Player, dealer:Player):
+        '''Optimal basic blackjack decision based off hard totals decision chart: 
+        https://www.blackjackapprenticeship.com/blackjack-strategy-charts/'''
+        dealer_upcard = dealer.hand[0]
+        hard_total = player.hand_value
+
+        if hard_total <= 8:
+            return "1"
+        elif hard_total == 9:
+            if dealer_upcard in [3,4,5,6] and turn == 1:
+                return "3"
+            else:
+                return "1"
+        elif hard_total == 10:
+            if dealer_upcard in [2,3,4,5,6,7,8,9] and turn == 1:
+                return "3"
+            else:
+                return "1"
+        elif hard_total == 11:
+            if turn == 1:
+                return "3"
+            else:
+                return "1"
+        elif hard_total == 12:
+            if dealer_upcard in [2,3,7,8,9,10,1]:
+                return "1"
+            else:
+                return "2"
+        elif hard_total in [13,14,15,16]:
+            if dealer_upcard in [2,3,4,5,6]:
+                return "2"
+            else:
+                return "1"
+        elif hard_total >= 17:
+            return "2"
+
     def blackjack_round(self, dealer:Player, player:Player):
         dealer.reset_hand()
         player.reset_hand()
 
         # Initiate the cards:
-
         # Deal the player card
         player.draw_card(self.deal_card())
         # Deal the dealer card
@@ -116,6 +155,7 @@ class BlackJack():
         # Initial hand values of player and dealer
         hidden_dealer_hand_value = dealer.calculate_hand_value(hidden_dealer_cards)
 
+        # Special case: if the dealer has a natural blackjack, 
         if hidden_dealer_hand_value == 21 and not player.hand_value == 21:
             print("Hidden natural, blackjack")
             player.handle_loss()
@@ -128,16 +168,21 @@ class BlackJack():
         if player.hand_value == 21 and hidden_dealer_hand_value == 21:
             return
 
+        turn = 1
         while player.hand_value <=21 and hidden_dealer_hand_value <= 21:
-            decision = input(
-f"""
-1: Hit
-2: Stand
-3: Double
-Dealer hand value: {dealer.hand_value}
-Current hand value: {player.hand_value}
-What would you like to do?
-""")
+
+            if self.play_manually:
+                decision = input(
+    f"""
+    1: Hit
+    2: Stand
+    3: Double
+    Dealer hand value: {dealer.hand_value}
+    Current hand value: {player.hand_value}
+    What would you like to do?
+    """)
+            else:
+                decision = self.optimal_decision(turn, player, dealer)
 
             if decision == "1":
                 player.draw_card(self.deal_card())
@@ -179,7 +224,7 @@ What would you like to do?
 
             else:
                 continue
-                
+            turn += 1
     def simulate_game(self):
         try:
             while self.player.pot > 0:
@@ -193,14 +238,20 @@ What would you like to do?
                     print("Creating new deck")
                     self.deck = self.create_deck(self.shoes)
             print("Sorry, your pot is empty")
-            plt.plot(self.player.pot_size)
-            plt.show()
-        except:
-            plt.plot(self.player.pot_size)
-            plt.show()
+            self.plot_pot(self.player.pot_size)
+        except Exception as ex:
+            print(ex)
+            self.plot_pot(self.player.pot_size)
+
+    def plot_pot(self, pot_size:list):
+
+        plt.plot(pot_size)
+        plt.ylabel("Pot size (£)")
+        plt.xlabel("Games played")
+        plt.show()
 
 if __name__ == "__main__":
 
     player = Player(name="Jamie", starting_pot=1000, bet_size=100)
-    bj = BlackJack(player, shoes=6)
+    bj = BlackJack(player, shoes=6, play_manually=False)
     bj.simulate_game()
