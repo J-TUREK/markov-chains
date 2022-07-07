@@ -25,6 +25,7 @@ class Player():
         self.pot += 1.5 * bet if blackjack else 1 * bet
         self.pot_size.append(self.pot)
         if blackjack: print("Player wins with blackjack")
+        
         print("\n")
         print("***----------***")
         print(f"{self.name} won, current pot: {self.pot}")
@@ -34,6 +35,7 @@ class Player():
         bet = bet_size if bet_size else self.bet_size
         self.pot -= bet
         self.pot_size.append(self.pot)
+
         print("\n")
         print("***----------***")
         print(f"{self.name} lost, current pot: {self.pot}")
@@ -112,22 +114,21 @@ class BlackJack():
         hidden_dealer_cards.append(hidden_dealer_card)
         
         # Initial hand values of player and dealer
-        player_hand_value = player.hand_value
-        dealer_hand_value = dealer.calculate_hand_value(hidden_dealer_cards)
+        hidden_dealer_hand_value = dealer.calculate_hand_value(hidden_dealer_cards)
 
-        if dealer_hand_value == 21 and not player_hand_value == 21:
+        if hidden_dealer_hand_value == 21 and not player.hand_value == 21:
             print("Hidden natural, blackjack")
             player.handle_loss()
             return
 
-        elif player_hand_value == 21 and not dealer_hand_value == 21:
+        elif player.hand_value == 21 and not hidden_dealer_hand_value == 21:
             player.handle_win(blackjack=True)
             return
 
-        if player_hand_value == 21 and dealer_hand_value == 21:
+        if player.hand_value == 21 and hidden_dealer_hand_value == 21:
             return
 
-        while player_hand_value <=21 and dealer_hand_value <= 21:
+        while player.hand_value <=21 and hidden_dealer_hand_value <= 21:
             decision = input(
 f"""
 1: Hit
@@ -147,10 +148,10 @@ What would you like to do?
 
             elif decision == "2":
                 dealer.auto_play(hidden_dealer_cards, self.deal_card)
-                print("dealer:", dealer.hand_value, "player:", player.hand_value)
+
                 if dealer.hand_value == player.hand_value: return
 
-                elif dealer.hand_value > 21 and player.hand_value <= 21:
+                elif (dealer.hand_value > 21 or dealer.hand_value < player.hand_value) and player.hand_value <= 21:
                     player.handle_win()
                     return
 
@@ -158,11 +159,8 @@ What would you like to do?
                     player.handle_loss() 
                     return
 
-                elif dealer.hand_value < player.hand_value and player.hand_value <= 21:
-                    player.handle_win()
-                    return
-
             elif decision == "3":
+
                 player.draw_card(self.deal_card())
                 if player.hand_value > 21:
                     player.handle_loss()
@@ -171,22 +169,18 @@ What would you like to do?
                 dealer.auto_play(hidden_dealer_cards, self.deal_card)
                 if dealer.hand_value == player.hand_value: return
 
-                elif dealer.hand_value > 21 and player.hand_value <= 21:
-                    player.handle_win()
+                elif (dealer.hand_value > 21 or dealer.hand_value < player.hand_value) and player.hand_value <= 21:
+                    player.handle_win(bet_size= 2 * player.bet_size)
                     return
 
                 elif dealer.hand_value > player.hand_value and dealer.hand_value <= 21:
-                    player.handle_loss(bet_size=2 * player.bet_size)
+                    player.handle_loss(bet_size= 2 * player.bet_size)
                     return
 
-                elif dealer.hand_value < player.hand_value and player.hand_value <= 21:
-                    player.handle_win(bet_size=2 * player.bet_size)
-                    return
             else:
                 continue
                 
     def simulate_game(self):
-
         try:
             while self.player.pot > 0:
                 self.blackjack_round(self.dealer, self.player)
@@ -208,6 +202,5 @@ What would you like to do?
 if __name__ == "__main__":
 
     player = Player(name="Jamie", starting_pot=1000, bet_size=100)
-
     bj = BlackJack(player, shoes=6)
     bj.simulate_game()
