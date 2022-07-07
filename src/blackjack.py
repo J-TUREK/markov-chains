@@ -1,14 +1,15 @@
-import numpy as np
+import matplotlib.pyplot as plt
 import random
 
 class Player():
 
     def __init__(self, name, starting_pot, bet_size) -> None:
         self.name = name
-        self.starting_pot = starting_pot
+        self.pot = starting_pot
         self.bet_size = bet_size
         self.hand = []
         self.hand_value = 0
+        self.pot_size = [starting_pot]
 
     def draw_card(self, card):
         self.hand.append(card)
@@ -21,26 +22,36 @@ class Player():
 
     def handle_win(self, blackjack=False, bet_size=None):
         bet = bet_size if bet_size else self.bet_size
-        self.pot += 1.5 if blackjack else 1 * bet
+        self.pot += 1.5 * bet if blackjack else 1 * bet
+        self.pot_size.append(self.pot)
         if blackjack: print("Player wins with blackjack")
+        print("\n")
+        print("***----------***")
+        print(f"{self.name} won, current pot: {self.pot}")
+        print("***----------***")
 
     def handle_loss(self, bet_size=None):
         bet = bet_size if bet_size else self.bet_size
         self.pot -= bet
+        self.pot_size.append(self.pot)
+        print("\n")
+        print("***----------***")
+        print(f"{self.name} lost, current pot: {self.pot}")
+        print("***----------***")
 
     def calculate_hand_value(self, cards:None):
         cards = cards if cards else self.hand
         count = 0
         for card in cards:
-            if card == 1:
-                count = count + 11 if count <= 10 else count + 1
-            elif card in [2,3,4,5,6,7,8,9]:
+            if card in [2,3,4,5,6,7,8,9]:
                 count += card
-            else:
+            elif card in [10,11,12,13]:
                 count += 10
+            elif card == 1:
+                count = count + 11 if count <= 10 else count + 1
         return count
 
-    def auto_play(self, cards, deal_card_callback:function):
+    def auto_play(self, cards, deal_card_callback):
         self.hand = cards
         self.hand_value = self.calculate_hand_value(self.hand)
         while self.hand_value <= 21:
@@ -103,8 +114,6 @@ class BlackJack():
         # Initial hand values of player and dealer
         player_hand_value = player.hand_value
         dealer_hand_value = dealer.calculate_hand_value(hidden_dealer_cards)
-        print("Player cards:", player.hand, "Player total: ", player_hand_value)
-        print("Dealer cards:", dealer.hand, "dealer total: ", dealer.hand_value)
 
         if dealer_hand_value == 21 and not player_hand_value == 21:
             print("Hidden natural, blackjack")
@@ -120,74 +129,85 @@ class BlackJack():
 
         while player_hand_value <=21 and dealer_hand_value <= 21:
             decision = input(
-"""
-hit: 0
-Stand: 1
-double: 2
+f"""
+1: Hit
+2: Stand
+3: Double
+Dealer hand value: {dealer.hand_value}
+Current hand value: {player.hand_value}
+What would you like to do?
 """)
 
-            if decision == 0:
+            if decision == "1":
                 player.draw_card(self.deal_card())
 
                 if player.hand_value > 21:
                     player.handle_loss()
                     return
 
-            elif decision == 1:
-                dealer_value = self.play_dealer(hidden_dealer_cards)
-                if dealer_value == player.hand_value: return
+            elif decision == "2":
+                dealer.auto_play(hidden_dealer_cards, self.deal_card)
+                print("dealer:", dealer.hand_value, "player:", player.hand_value)
+                if dealer.hand_value == player.hand_value: return
 
-                elif dealer_value > player_hand_value and dealer_value <= 21:
-                    player.handle_loss() 
-                    return
-
-                elif dealer_value < player_hand_value and player_hand_value <= 21:
+                elif dealer.hand_value > 21 and player.hand_value <= 21:
                     player.handle_win()
                     return
 
-            elif decision == 2:
-                player.draw_card(self.deal_card())
-                if player.hand_value() > 21:
-                    self.handle_loss()
+                elif dealer.hand_value > player.hand_value and dealer.hand_value <= 21:
+                    player.handle_loss() 
                     return
 
-                dealer_value = dealer.auto_play(hidden_dealer_cards, self.deal_card)
-                if dealer_value == player_hand_value: return
+                elif dealer.hand_value < player.hand_value and player.hand_value <= 21:
+                    player.handle_win()
+                    return
 
-                if dealer_value > player_hand_value and dealer_value <= 21:
+            elif decision == "3":
+                player.draw_card(self.deal_card())
+                if player.hand_value > 21:
+                    player.handle_loss()
+                    return
+
+                dealer.auto_play(hidden_dealer_cards, self.deal_card)
+                if dealer.hand_value == player.hand_value: return
+
+                elif dealer.hand_value > 21 and player.hand_value <= 21:
+                    player.handle_win()
+                    return
+
+                elif dealer.hand_value > player.hand_value and dealer.hand_value <= 21:
                     player.handle_loss(bet_size=2 * player.bet_size)
                     return
 
-                elif dealer_value < player_hand_value and player_hand_value <= 21:
+                elif dealer.hand_value < player.hand_value and player.hand_value <= 21:
                     player.handle_win(bet_size=2 * player.bet_size)
                     return
             else:
                 continue
                 
-    # def play_dealer(self, dealer_cards):
-    #     dealer_cards_value = self.count_card_value(dealer_cards)
-    #     while dealer_cards_value <= 21:
-    #         dealer_cards.append(self.deal_card())
-    #         dealer_cards_value = self.count_card_value(dealer_cards)
-    #         if dealer_cards_value >= 17:
-    #             return dealer_cards_value
-
     def simulate_game(self):
 
-        while True:
-            self.blackjack_round()
-            print("\n")
-            s = input("Press enter to continue: ")
-            if s == "no" or s == "No" or s == "n":
-                break
-            print("Running count: ", self.running_count, "True count:", self.true_count)
-            if len(self.deck) < 60:
-                print("Creating new deck")
-                self.deck = self.create_deck(self.shoes)
+        try:
+            while self.player.pot > 0:
+                self.blackjack_round(self.dealer, self.player)
+                print("\n")
+                s = input("Press enter to continue: ")
+                if s == "no" or s == "No" or s == "n":
+                    break
+                print("Running count: ", self.running_count, "True count:", self.true_count)
+                if len(self.deck) < 60:
+                    print("Creating new deck")
+                    self.deck = self.create_deck(self.shoes)
+            print("Sorry, your pot is empty")
+            plt.plot(self.player.pot_size)
+            plt.show()
+        except:
+            plt.plot(self.player.pot_size)
+            plt.show()
 
 if __name__ == "__main__":
 
     player = Player(name="Jamie", starting_pot=1000, bet_size=100)
 
-    bj = BlackJack(player, shoes=6, players=1)
+    bj = BlackJack(player, shoes=6)
     bj.simulate_game()
